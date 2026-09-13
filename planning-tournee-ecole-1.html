@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tournée d'école — Planning des trajets</title>
+<style>
+  :root{
+    --ink:#1B2B28;
+    --paper:#FAF8F3;
+    --paper-dim:#F1EDE3;
+    --pine:#2D4A43;
+    --pine-light:#3E6058;
+    --amber:#E8A33D;
+    --amber-dim:#F3D9AA;
+    --line:#D9D2C2;
+    --college:#3E6058;
+    --lycee:#B5651D;
+    --ecole:#7A6FB0;
+    --danger:#B33F3F;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:720px;margin:0 auto;padding:18px 16px 60px;}
+
+  header.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px;}
+  header.top h1{font-size:1.4rem;letter-spacing:-0.01em;margin:0;font-weight:700;color:var(--pine);}
+  .subtitle{color:#6B665A;font-size:0.88rem;margin:2px 0 18px;line-height:1.4;}
+
+  /* Week switcher */
+  .week-bar{
+    display:flex;align-items:center;gap:8px;
+    background:var(--pine);color:#fff;
+    border-radius:var(--radius);
+    padding:10px 10px;
+    margin-bottom:14px;
+  }
+  .week-nav-btn{
+    background:rgba(255,255,255,0.14);border:none;color:#fff;
+    width:32px;height:32px;border-radius:8px;font-size:1rem;font-weight:700;
+    cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  }
+  .week-nav-btn:active{background:rgba(255,255,255,0.28);}
+  .week-label-wrap{flex:1;min-width:0;text-align:center;cursor:pointer;}
+  .week-label{font-size:0.85rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .week-sublabel{font-size:0.66rem;color:var(--amber-dim);margin-top:1px;}
+  .week-today-btn{
+    background:rgba(255,255,255,0.14);border:none;color:#fff;font-size:0.68rem;font-weight:700;
+    padding:0 10px;height:32px;border-radius:8px;cursor:pointer;flex-shrink:0;
+  }
+  .week-picker-input{
+    position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;
+  }
+
+  nav.tabs{display:flex;border-bottom:2px solid var(--line);margin-bottom:18px;gap:2px;}
+  nav.tabs button{flex:1;background:none;border:none;padding:10px 4px 12px;font-size:0.92rem;font-weight:600;color:#8a8474;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s;}
+  nav.tabs button.active{color:var(--pine);border-bottom-color:var(--amber);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .row-card{border-bottom:1px solid var(--line);padding:14px 0;}
+  .row-card:first-child{padding-top:0;}
+
+  .child-head, .parent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .name-input{font-size:1rem;font-weight:600;border:none;background:none;color:var(--ink);width:100%;padding:2px 0;border-bottom:1px solid transparent;}
+  .name-input:focus{outline:none;border-bottom:1px solid var(--pine);}
+
+  .transport-tag{
+    flex-shrink:0;font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;
+  }
+  .transport-tag.on{background:var(--amber-dim);color:#5a3e0d;}
+  .transport-tag.off{background:var(--paper-dim);color:#8a8474;}
+
+  .tag{display:inline-block;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;white-space:nowrap;}
+  .tag.college{background:var(--college);}
+  .tag.lycee{background:var(--lycee);}
+  .tag.ecole{background:var(--ecole);}
+  .tag.mixte{background:#8a8474;}
+
+  .family-input, .lieu-input{
+    font-family:inherit;font-size:0.85rem;padding:5px 8px;border-radius:6px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);width:98px;
+  }
+  select, .field-select{
+    font-family:inherit;font-size:0.85rem;padding:5px 8px;border-radius:6px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);
+  }
+
+  .field-line{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;}
+  .field-line label{font-size:0.78rem;color:#6B665A;}
+  .field-line input[type=time]{font-family:inherit;font-size:0.85rem;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:#fff;}
+
+  .switch{position:relative;width:38px;height:22px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;cursor:pointer;inset:0;background:#DCD5C4;border-radius:20px;transition:.15s;}
+  .slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider{background:var(--pine);}
+  .switch input:checked + .slider:before{transform:translateX(16px);}
+  .switch.small{width:30px;height:18px;}
+  .switch.small .slider:before{height:12px;width:12px;left:3px;top:3px;}
+  .switch.small input:checked + .slider:before{transform:translateX(12px);}
+
+  .del-btn{background:none;border:none;color:#B7AF9B;font-size:1.1rem;cursor:pointer;padding:2px 6px;line-height:1;}
+  .del-btn:hover{color:var(--danger);}
+
+  .add-btn{width:100%;margin-top:14px;padding:11px;border-radius:var(--radius);border:1.5px dashed var(--line);background:none;color:var(--pine);font-weight:700;font-size:0.88rem;cursor:pointer;}
+  .add-btn:active{background:var(--paper-dim);}
+
+  /* Per-child weekly schedule */
+  .schedule-box{margin-top:12px;background:var(--paper-dim);border-radius:8px;padding:8px 10px;}
+  .schedule-hint{font-size:0.72rem;color:#8a8474;margin-bottom:8px;line-height:1.4;}
+  .sched-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .sched-row:last-child{border-bottom:none;}
+  .sched-day{width:34px;flex-shrink:0;font-size:0.78rem;font-weight:700;color:var(--pine);}
+  .sched-times{display:flex;align-items:center;gap:6px;flex:1;opacity:1;transition:opacity .1s;}
+  .sched-row.inactive .sched-times{opacity:0.35;pointer-events:none;}
+  .sched-times label{font-size:0.68rem;color:#8a8474;}
+  .sched-times label.leg-check{display:flex;align-items:center;gap:3px;font-size:0.68rem;color:#6B665A;cursor:pointer;}
+  .sched-times label.leg-check input[type=checkbox]{width:13px;height:13px;margin:0;accent-color:var(--pine);cursor:pointer;}
+  .sched-times input[type=time]{font-family:inherit;font-size:0.8rem;padding:3px 5px;border-radius:5px;border:1px solid var(--line);background:#fff;width:86px;}
+
+  .niveaux-perm-row{display:flex;align-items:center;gap:6px;margin-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .niveaux-perm-row .avail-moment-tag{width:auto;margin-right:2px;}
+
+  /* Parents availability by day / moment / school level */
+  .avail-day-block{padding:8px 0;border-bottom:1px solid var(--line);}
+  .avail-day-block:last-child{border-bottom:none;}
+  .avail-day-label{font-size:0.8rem;font-weight:700;color:var(--pine);margin-bottom:6px;}
+  .avail-moment-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap;}
+  .avail-moment-row:last-child{margin-bottom:0;}
+  .avail-moment-tag{font-size:0.68rem;font-weight:700;color:#8a8474;width:42px;flex-shrink:0;}
+  .niv-chip{font-size:0.68rem;font-weight:700;padding:5px 9px;border-radius:20px;border:1px solid var(--line);background:#fff;color:#B7AF9B;cursor:pointer;}
+  .niv-chip.college.on{background:var(--college);border-color:var(--college);color:#fff;}
+  .niv-chip.lycee.on{background:var(--lycee);border-color:var(--lycee);color:#fff;}
+  .niv-chip.ecole.on{background:var(--ecole);border-color:var(--ecole);color:#fff;}
+
+  /* Planning */
+  .plan-day{margin-bottom:22px;}
+  .plan-day-title{font-size:1rem;font-weight:700;color:var(--pine);margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line);}
+  .moment-block{margin-bottom:10px;}
+  .moment-label{font-size:0.75rem;font-weight:700;color:#8a8474;margin-bottom:6px;}
+  .trip-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);}
+  .trip-row:last-child{border-bottom:none;}
+  .trip-info{flex:1;min-width:0;}
+  .trip-name{font-size:0.88rem;font-weight:600;}
+  .trip-meta{font-size:0.72rem;color:#8a8474;}
+  .trip-select{flex-shrink:0;min-width:118px;}
+  .trip-select select{width:100%;}
+  .trip-select select.unassigned{border-color:var(--danger);color:var(--danger);font-weight:700;}
+  .empty-note{font-size:0.82rem;color:#8a8474;font-style:italic;padding:6px 0;}
+
+  .controls-row{display:flex;gap:8px;margin-bottom:18px;}
+  .btn-primary{flex:1;padding:11px;border-radius:var(--radius);border:none;background:var(--pine);color:#fff;font-weight:700;font-size:0.88rem;cursor:pointer;}
+  .btn-primary:active{background:var(--pine-light);}
+  .btn-secondary{padding:11px 14px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;font-size:0.85rem;cursor:pointer;}
+
+  .load-summary{margin-top:6px;padding:14px;background:var(--paper-dim);border-radius:var(--radius);}
+  .load-summary h3{margin:0 0 10px;font-size:0.85rem;color:var(--pine);}
+  .load-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:0.8rem;}
+  .load-bar-row .lname{width:80px;flex-shrink:0;font-weight:600;}
+  .load-bar-track{flex:1;height:8px;background:#E5DFCF;border-radius:4px;overflow:hidden;}
+  .load-bar-fill{height:100%;background:var(--amber);border-radius:4px;}
+  .load-count{width:20px;text-align:right;font-weight:700;color:var(--pine);font-size:0.78rem;}
+
+  .status-msg{font-size:0.78rem;color:#8a8474;text-align:center;margin-top:14px;min-height:16px;}
+  .shared-note{font-size:0.74rem;color:#8a8474;background:var(--paper-dim);border-radius:8px;padding:9px 11px;margin-bottom:16px;line-height:1.4;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top"><h1>Tournée d'école</h1></header>
+  <p class="subtitle">Planning partagé des trajets collège / lycée pour les familles Uzel, Flachet et Gerber.</p>
+  <div class="shared-note">Les données de ce planning sont partagées entre tous ceux qui ouvrent ce lien — pratique pour que les 6 parents voient et modifient la même tournée. Chaque semaine a ses propres enfants, parents et affectations : une nouvelle semaine reprend automatiquement la configuration de la semaine précédente comme point de départ, à ajuster librement.</div>
+
+  <div class="week-bar">
+    <button class="week-nav-btn" id="week-prev" title="Semaine précédente">‹</button>
+    <div class="week-label-wrap" id="week-label-wrap">
+      <div class="week-label" id="week-label">—</div>
+      <div class="week-sublabel" id="week-sublabel">Toucher pour choisir une date</div>
+    </div>
+    <button class="week-nav-btn" id="week-next" title="Semaine suivante">›</button>
+    <button class="week-today-btn" id="week-today">Aujourd'hui</button>
+    <input type="date" id="week-picker" class="week-picker-input" />
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="enfants">Enfants</button>
+    <button class="tab-btn" data-tab="parents">Parents</button>
+    <button class="tab-btn" data-tab="planning">Planning</button>
+  </nav>
+
+  <div id="enfants" class="panel active">
+    <div id="children-list"></div>
+    <button class="add-btn" id="add-child">+ Ajouter un enfant</button>
+    <datalist id="family-names"></datalist>
+    <datalist id="lieu-names"></datalist>
+  </div>
+
+  <div id="parents" class="panel">
+    <div id="parents-list"></div>
+    <button class="add-btn" id="add-parent">+ Ajouter un parent</button>
+  </div>
+
+  <div id="planning" class="panel">
+    <div class="controls-row">
+      <button class="btn-primary" id="auto-assign">Générer / équilibrer le planning</button>
+      <button class="btn-secondary" id="clear-plan">Vider</button>
+    </div>
+    <div id="planning-content"></div>
+    <div class="load-summary">
+      <h3>Répartition des trajets sur la semaine</h3>
+      <div id="load-list"></div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="status-msg"></div>
+</div>
+
+<script>
+const DAYS = [
+  {key:'lun', label:'Lun', full:'Lundi'},
+  {key:'mar', label:'Mar', full:'Mardi'},
+  {key:'mer', label:'Mer', full:'Mercredi'},
+  {key:'jeu', label:'Jeu', full:'Jeudi'},
+  {key:'ven', label:'Ven', full:'Vendredi'},
+];
+
+/* ---------- DATE / WEEK HELPERS ---------- */
+function pad2(n){ return String(n).padStart(2,'0'); }
+function toISODate(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function mondayOf(date){
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = (day===0 ? -6 : 1-day);
+  d.setDate(d.getDate()+diff);
+  return d;
+}
+function weekIdForDate(date){ return toISODate(mondayOf(date)); }
+function addDaysToWeekId(weekId, n){
+  const d = new Date(weekId+'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return d;
+}
+function shiftWeekId(weekId, weeks){ return toISODate(addDaysToWeekId(weekId, weeks*7)); }
+function weekLabel(weekId){
+  const mon = new Date(weekId+'T00:00:00');
+  const fri = addDaysToWeekId(weekId, 4);
+  const monStr = mon.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+  const friStr = fri.toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'});
+  return `Semaine du ${monStr} au ${friStr}`;
+}
+
+/* ---------- SCHEDULE TEMPLATES ---------- */
+function daySchedule(actif, aller, retour, allerNeeded, retourNeeded){
+  return {
+    actif,
+    aller, retour,
+    allerNeeded: allerNeeded===undefined ? true : allerNeeded,
+    retourNeeded: retourNeeded===undefined ? true : retourNeeded
+  };
+}
+function collegeWeek(){
+  return {
+    lun: daySchedule(true,'07:30','16:40'),
+    mar: daySchedule(true,'07:30','16:40'),
+    mer: daySchedule(true,'07:30','12:00'),
+    jeu: daySchedule(true,'07:30','16:40'),
+    ven: daySchedule(true,'07:30','16:40'),
+  };
+}
+function lyceeWeek(){
+  return {
+    lun: daySchedule(true,'07:00','17:00'),
+    mar: daySchedule(true,'07:00','17:00'),
+    mer: daySchedule(true,'07:00','12:00'),
+    jeu: daySchedule(true,'07:00','17:00'),
+    ven: daySchedule(true,'07:00','17:00'),
+  };
+}
+function emptyWeekSchedule(){
+  const w = {};
+  DAYS.forEach(d=> w[d.key] = daySchedule(false,'',''));
+  return w;
+}
+
+function fullAvail(niveaux){
+  niveaux = niveaux || {college:true, lycee:true, ecole:true};
+  const a = {};
+  DAYS.forEach(d=>{
+    a[d.key] = {
+      aller: {college:!!niveaux.college, lycee:!!niveaux.lycee, ecole:!!niveaux.ecole},
+      retour: {college:!!niveaux.college, lycee:!!niveaux.lycee, ecole:!!niveaux.ecole}
+    };
+  });
+  return a;
+}
+function niveauToKey(niveau){
+  return niveau==='Lycée' ? 'lycee' : niveau==='Collège' ? 'college' : 'ecole';
+}
+
+/* ---------- WEEK DATA (children + parents + assignments for ONE week) ---------- */
+function defaultWeekData(){
+  return {
+    children: [
+      {id:'c1', prenom:'Emma', famille:'Uzel', niveau:'Lycée', lieu:'Lycée', horaires: lyceeWeek()},
+      {id:'c2', prenom:'Clara', famille:'Uzel', niveau:'Collège', lieu:'Collège', horaires: collegeWeek()},
+      {id:'c3', prenom:'Tristan', famille:'Flachet', niveau:'Lycée', lieu:'Lycée', horaires: lyceeWeek()},
+      {id:'c4', prenom:'Gabriel', famille:'Flachet', niveau:'Collège', lieu:'Collège', horaires: collegeWeek()},
+      {id:'c5', prenom:'Joachim', famille:'Flachet', niveau:'Collège', lieu:'Collège', horaires: collegeWeek()},
+      {id:'c6', prenom:'Manon', famille:'Gerber', niveau:'Collège', lieu:'Collège', horaires: collegeWeek()},
+      {id:'c7', prenom:'Léon', famille:'Gerber', niveau:'École', lieu:'École', horaires: collegeWeek()},
+    ],
+    parents: [
+      {id:'p1', prenom:'Greg U', niveaux:{college:true, lycee:true, ecole:false}, avail:fullAvail({college:true, lycee:true, ecole:false})},
+      {id:'p2', prenom:'Elo', niveaux:{college:true, lycee:true, ecole:false}, avail:fullAvail({college:true, lycee:true, ecole:false})},
+      {id:'p3', prenom:'Greg F', niveaux:{college:true, lycee:true, ecole:false}, avail:fullAvail({college:true, lycee:true, ecole:false})},
+      {id:'p4', prenom:'Julie', niveaux:{college:true, lycee:true, ecole:false}, avail:fullAvail({college:true, lycee:true, ecole:false})},
+      {id:'p5', prenom:'Caro', niveaux:{college:true, lycee:true, ecole:true}, avail:fullAvail({college:true, lycee:true, ecole:true})},
+      {id:'p6', prenom:'Pascal', niveaux:{college:true, lycee:true, ecole:true}, avail:fullAvail({college:true, lycee:true, ecole:true})},
+    ],
+    assignments: {} // key: trip group key -> parentId
+  };
+}
+function cloneWeekData(source){
+  return {
+    children: JSON.parse(JSON.stringify(source.children)),
+    parents: JSON.parse(JSON.stringify(source.parents)),
+    assignments: {} // each week starts unplanned; the roster/schedule carries over, the plan itself doesn't
+  };
+}
+
+/* ---------- TOP-LEVEL STATE: { weeks: { weekId: weekData }, currentWeekId } ---------- */
+function defaultState(){
+  const wid = weekIdForDate(new Date());
+  const weeks = {};
+  weeks[wid] = defaultWeekData();
+  return { weeks, currentWeekId: wid };
+}
+
+let state = defaultState();
+let saveTimer = null;
+
+function currentWeek(){
+  return state.weeks[state.currentWeekId];
+}
+
+/* ---------- MIGRATIONS (schema upgrades within one week's data) ---------- */
+function migrateChild(c){
+  if(!c.horaires){
+    const w = {};
+    DAYS.forEach(d=>{
+      const actif = !!(c.jours && c.jours[d.key]);
+      w[d.key] = daySchedule(actif, actif ? (c.heureAller||'08:00') : '', actif ? (c.heureRetour||'17:00') : '');
+    });
+    c.horaires = w;
+    delete c.jours; delete c.heureAller; delete c.heureRetour;
+  }
+  const needsLegMigration = DAYS.some(d=> c.horaires[d.key] && c.horaires[d.key].allerNeeded === undefined);
+  if(needsLegMigration){
+    const globalNeeded = c.transport === undefined ? true : !!c.transport;
+    DAYS.forEach(d=>{
+      const h = c.horaires[d.key];
+      if(!h) return;
+      h.allerNeeded = globalNeeded;
+      h.retourNeeded = globalNeeded;
+    });
+  }
+  delete c.transport;
+  if(c.lieu === undefined) c.lieu = '';
+  return c;
+}
+function migrateParent(p){
+  if(p.avail){
+    DAYS.forEach(d=>{
+      const day = p.avail[d.key];
+      if(!day) return;
+      if(day.matin !== undefined || day.soir !== undefined){
+        const allerVal = !!day.matin, retourVal = !!day.soir;
+        p.avail[d.key] = {
+          aller: {college:allerVal, lycee:allerVal, ecole:allerVal},
+          retour: {college:retourVal, lycee:retourVal, ecole:retourVal}
+        };
+        return;
+      }
+      if(typeof day.aller === 'boolean' || typeof day.retour === 'boolean'){
+        const allerVal = !!day.aller, retourVal = !!day.retour;
+        p.avail[d.key] = {
+          aller: {college:allerVal, lycee:allerVal, ecole:allerVal},
+          retour: {college:retourVal, lycee:retourVal, ecole:retourVal}
+        };
+      }
+    });
+  }
+  if(!p.niveaux){
+    const ecoleOk = (p.prenom||'').trim().toLowerCase() === 'pascal' || (p.prenom||'').trim().toLowerCase() === 'caro';
+    p.niveaux = {college:true, lycee:true, ecole:ecoleOk};
+  }
+  DAYS.forEach(d=>{
+    ['aller','retour'].forEach(type=>{
+      const slot = p.avail[d.key] && p.avail[d.key][type];
+      if(slot && !p.niveaux.ecole) slot.ecole = false;
+    });
+  });
+  return p;
+}
+function migrateWeekData(wd){
+  const before = JSON.stringify({children:wd.children, parents:wd.parents});
+  wd.children = (wd.children||[]).map(migrateChild);
+  wd.parents = (wd.parents||[]).map(migrateParent);
+  const changed = JSON.stringify({children:wd.children, parents:wd.parents}) !== before;
+  if(changed) wd.assignments = {}; // old assignment keys wouldn't match the new schema anyway
+  if(!wd.assignments) wd.assignments = {};
+  return changed;
+}
+
+async function loadState(){
+  let migrated = false;
+  try{
+    const res = await window.storage.get('family-carpool-data', true);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      if(parsed && parsed.weeks){
+        state = parsed;
+      } else if(parsed && parsed.children){
+        // oldest schema: a single flat week's worth of data, not yet week-scoped
+        const wid = weekIdForDate(new Date());
+        state = { weeks: { [wid]: { children:parsed.children||[], parents:parsed.parents||[], assignments:parsed.assignments||{} } }, currentWeekId: wid };
+        migrated = true;
+      } else {
+        state = defaultState();
+      }
+      if(!state.currentWeekId || !state.weeks[state.currentWeekId]){
+        const keys = Object.keys(state.weeks);
+        state.currentWeekId = keys.length ? keys.sort()[0] : weekIdForDate(new Date());
+        if(!state.weeks[state.currentWeekId]) state.weeks[state.currentWeekId] = defaultWeekData();
+      }
+      Object.keys(state.weeks).forEach(wid=>{
+        if(migrateWeekData(state.weeks[wid])) migrated = true;
+      });
+    }
+  }catch(e){
+    // no data yet, keep defaults
+  }
+  renderWeekBar();
+  renderAll();
+  if(migrated){ scheduleSave('Données mises à jour — vérifiez le planning'); }
+}
+
+function scheduleSave(msg){
+  if(saveTimer) clearTimeout(saveTimer);
+  setStatus('Enregistrement…');
+  saveTimer = setTimeout(async ()=>{
+    try{
+      const ok = await window.storage.set('family-carpool-data', JSON.stringify(state), true);
+      setStatus(ok ? (msg || 'Enregistré ✓') : 'Échec de l\'enregistrement');
+    }catch(e){
+      setStatus('Échec de l\'enregistrement');
+    }
+  }, 300);
+}
+function setStatus(txt){
+  const el = document.getElementById('status-msg');
+  el.textContent = txt;
+  if(txt.includes('✓')){
+    setTimeout(()=>{ if(el.textContent===txt) el.textContent=''; }, 2200);
+  }
+}
+
+function uid(prefix){ return prefix + Math.random().toString(36).slice(2,9); }
+
+function childHasAnyTransport(child){
+  return DAYS.some(d=>{
+    const h = child.horaires[d.key];
+    if(!h || !h.actif) return false;
+    return (h.aller && h.allerNeeded) || (h.retour && h.retourNeeded);
+  });
+}
+
+function niveauTag(niveau){
+  const cls = niveau==='Lycée' ? 'lycee' : niveau==='Collège' ? 'college' : 'ecole';
+  return `<span class="tag ${cls}">${niveau}</span>`;
+}
+
+/* ---------- WEEK SWITCHER ---------- */
+function renderWeekBar(){
+  document.getElementById('week-label').textContent = weekLabel(state.currentWeekId);
+  const isNew = false; // (kept simple: sublabel is a static hint)
+  document.getElementById('week-sublabel').textContent = 'Toucher pour choisir une date';
+  document.getElementById('week-picker').value = state.currentWeekId;
+}
+
+function goToWeek(newWeekId){
+  if(!state.weeks[newWeekId]){
+    state.weeks[newWeekId] = cloneWeekData(currentWeek());
+  }
+  state.currentWeekId = newWeekId;
+  scheduleSave();
+  renderWeekBar();
+  renderAll();
+}
+
+document.getElementById('week-prev').addEventListener('click', ()=>{
+  goToWeek(shiftWeekId(state.currentWeekId, -1));
+});
+document.getElementById('week-next').addEventListener('click', ()=>{
+  goToWeek(shiftWeekId(state.currentWeekId, 1));
+});
+document.getElementById('week-today').addEventListener('click', ()=>{
+  goToWeek(weekIdForDate(new Date()));
+});
+document.getElementById('week-label-wrap').addEventListener('click', ()=>{
+  const picker = document.getElementById('week-picker');
+  if(picker.showPicker){ try{ picker.showPicker(); return; }catch(e){} }
+  picker.focus();
+  picker.click();
+});
+document.getElementById('week-picker').addEventListener('change', e=>{
+  if(!e.target.value) return;
+  goToWeek(weekIdForDate(new Date(e.target.value+'T00:00:00')));
+});
+
+/* ---------- ENFANTS ---------- */
+function updateAutocompleteLists(){
+  const cw = currentWeek();
+  const dl = document.getElementById('family-names');
+  if(dl){
+    const names = [...new Set(cw.children.map(c=>c.famille).filter(Boolean))];
+    dl.innerHTML = names.map(n=>`<option value="${escapeAttr(n)}"></option>`).join('');
+  }
+  const dl2 = document.getElementById('lieu-names');
+  if(dl2){
+    const lieux = [...new Set(cw.children.map(c=>c.lieu).filter(Boolean))];
+    dl2.innerHTML = lieux.map(n=>`<option value="${escapeAttr(n)}"></option>`).join('');
+  }
+}
+
+function renderChildren(){
+  const cw = currentWeek();
+  const list = document.getElementById('children-list');
+  list.innerHTML = '';
+  cw.children.forEach(child=>{
+    const card = document.createElement('div');
+    card.className = 'row-card';
+    card.innerHTML = `
+      <div class="child-head">
+        <input class="name-input" value="${escapeAttr(child.prenom)}" data-field="prenom" />
+        <span class="transport-tag ${childHasAnyTransport(child)?'on':'off'}">${childHasAnyTransport(child)?'🚗 Transport':'🚶 Autonome'}</span>
+        <button class="del-btn" title="Supprimer">✕</button>
+      </div>
+      <div class="field-line">
+        <label>Famille</label>
+        <input type="text" class="family-input" data-field="famille" value="${escapeAttr(child.famille)}" list="family-names" />
+        <label>Niveau</label>
+        <select data-field="niveau">
+          ${['École','Collège','Lycée'].map(n=>`<option value="${n}" ${child.niveau===n?'selected':''}>${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field-line">
+        <label>Destination (pour grouper les trajets)</label>
+        <input type="text" class="lieu-input" data-field="lieu" value="${escapeAttr(child.lieu||'')}" list="lieu-names" placeholder="ex. Collège" />
+      </div>
+      <div class="schedule-box">
+        <div class="schedule-hint">Par jour : cochez « école » si l'enfant y va, puis cochez Aller et/ou Retour uniquement pour les trajets où il a besoin d'être conduit (décoché = autonome ce trajet-là : train, à pied, quelqu'un d'autre…). Cette semaine uniquement — les autres semaines ne sont pas affectées.</div>
+        ${DAYS.map(d=>{
+          const h = child.horaires[d.key];
+          return `
+          <div class="sched-row ${h.actif?'':'inactive'}" data-day="${d.key}">
+            <div class="sched-day">${d.label}</div>
+            <label class="switch small">
+              <input type="checkbox" data-actif="${d.key}" ${h.actif?'checked':''}/>
+              <span class="slider"></span>
+            </label>
+            <div class="sched-times">
+              <label class="leg-check"><input type="checkbox" data-aller-needed="${d.key}" ${h.allerNeeded?'checked':''}/> Aller</label>
+              <input type="time" data-aller="${d.key}" value="${h.aller}"/>
+              <label class="leg-check"><input type="checkbox" data-retour-needed="${d.key}" ${h.retourNeeded?'checked':''}/> Retour</label>
+              <input type="time" data-retour="${d.key}" value="${h.retour}"/>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+    function refreshBadge(){
+      const tag = card.querySelector('.transport-tag');
+      const any = childHasAnyTransport(child);
+      tag.textContent = any ? '🚗 Transport' : '🚶 Autonome';
+      tag.classList.toggle('on', any);
+      tag.classList.toggle('off', !any);
+    }
+    card.querySelector('[data-field="prenom"]').addEventListener('input', e=>{
+      child.prenom = e.target.value; scheduleSave(); renderPlanning();
+    });
+    card.querySelector('[data-field="famille"]').addEventListener('input', e=>{
+      child.famille = e.target.value; scheduleSave(); renderPlanning(); updateAutocompleteLists();
+    });
+    card.querySelector('[data-field="niveau"]').addEventListener('change', e=>{
+      child.niveau = e.target.value; scheduleSave(); renderPlanning();
+    });
+    card.querySelector('[data-field="lieu"]').addEventListener('input', e=>{
+      child.lieu = e.target.value; scheduleSave(); renderPlanning(); updateAutocompleteLists();
+    });
+    DAYS.forEach(d=>{
+      const row = card.querySelector(`.sched-row[data-day="${d.key}"]`);
+      row.querySelector('[data-actif]').addEventListener('change', e=>{
+        child.horaires[d.key].actif = e.target.checked;
+        row.classList.toggle('inactive', !e.target.checked);
+        scheduleSave(); renderPlanning(); refreshBadge();
+      });
+      row.querySelector('[data-aller-needed]').addEventListener('change', e=>{
+        child.horaires[d.key].allerNeeded = e.target.checked;
+        scheduleSave(); renderPlanning(); refreshBadge();
+      });
+      row.querySelector('[data-retour-needed]').addEventListener('change', e=>{
+        child.horaires[d.key].retourNeeded = e.target.checked;
+        scheduleSave(); renderPlanning(); refreshBadge();
+      });
+      row.querySelector('[data-aller]').addEventListener('change', e=>{
+        child.horaires[d.key].aller = e.target.value; scheduleSave(); renderPlanning();
+      });
+      row.querySelector('[data-retour]').addEventListener('change', e=>{
+        child.horaires[d.key].retour = e.target.value; scheduleSave(); renderPlanning();
+      });
+    });
+    card.querySelector('.del-btn').addEventListener('click', ()=>{
+      cw.children = cw.children.filter(c=>c.id!==child.id);
+      scheduleSave(); renderChildren(); renderPlanning();
+    });
+    list.appendChild(card);
+  });
+  updateAutocompleteLists();
+}
+
+document.getElementById('add-child').addEventListener('click', ()=>{
+  const cw = currentWeek();
+  const last = cw.children[cw.children.length-1];
+  cw.children.push({
+    id:uid('c'), prenom:'Nouvel enfant',
+    famille: last ? last.famille : '',
+    niveau:'Collège',
+    lieu: last ? last.lieu : '',
+    horaires: collegeWeek()
+  });
+  scheduleSave(); renderChildren(); renderPlanning();
+});
+
+/* ---------- PARENTS ---------- */
+function renderParents(){
+  const cw = currentWeek();
+  const list = document.getElementById('parents-list');
+  list.innerHTML = '';
+  cw.parents.forEach(parent=>{
+    const card = document.createElement('div');
+    card.className = 'row-card';
+    card.innerHTML = `
+      <div class="parent-head">
+        <input class="name-input" value="${escapeAttr(parent.prenom)}" data-field="prenom" />
+        <button class="del-btn" title="Supprimer">✕</button>
+      </div>
+      <div class="niveaux-perm-row">
+        <span class="avail-moment-tag">Conduit</span>
+        <div class="niv-chip college ${parent.niveaux.college?'on':''}" data-perm="college">Collège</div>
+        <div class="niv-chip lycee ${parent.niveaux.lycee?'on':''}" data-perm="lycee">Lycée</div>
+        <div class="niv-chip ecole ${parent.niveaux.ecole?'on':''}" data-perm="ecole">École</div>
+      </div>
+      ${DAYS.map(d=>{
+        const av = parent.avail[d.key];
+        return `
+        <div class="avail-day-block" data-day="${d.key}">
+          <div class="avail-day-label">${d.full}</div>
+          <div class="avail-moment-row" data-moment="aller">
+            <span class="avail-moment-tag">Aller</span>
+            ${parent.niveaux.college?`<div class="niv-chip college ${av.aller.college?'on':''}" data-moment="aller" data-niveau="college">Collège</div>`:''}
+            ${parent.niveaux.lycee?`<div class="niv-chip lycee ${av.aller.lycee?'on':''}" data-moment="aller" data-niveau="lycee">Lycée</div>`:''}
+            ${parent.niveaux.ecole?`<div class="niv-chip ecole ${av.aller.ecole?'on':''}" data-moment="aller" data-niveau="ecole">École</div>`:''}
+          </div>
+          <div class="avail-moment-row" data-moment="retour">
+            <span class="avail-moment-tag">Retour</span>
+            ${parent.niveaux.college?`<div class="niv-chip college ${av.retour.college?'on':''}" data-moment="retour" data-niveau="college">Collège</div>`:''}
+            ${parent.niveaux.lycee?`<div class="niv-chip lycee ${av.retour.lycee?'on':''}" data-moment="retour" data-niveau="lycee">Lycée</div>`:''}
+            ${parent.niveaux.ecole?`<div class="niv-chip ecole ${av.retour.ecole?'on':''}" data-moment="retour" data-niveau="ecole">École</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    `;
+    card.querySelector('[data-field="prenom"]').addEventListener('input', e=>{
+      parent.prenom = e.target.value; scheduleSave(); renderPlanning();
+    });
+    card.querySelectorAll('.niveaux-perm-row .niv-chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        const niv = chip.dataset.perm;
+        parent.niveaux[niv] = !parent.niveaux[niv];
+        if(!parent.niveaux[niv]){
+          DAYS.forEach(d=>{
+            parent.avail[d.key].aller[niv] = false;
+            parent.avail[d.key].retour[niv] = false;
+          });
+        } else {
+          DAYS.forEach(d=>{
+            parent.avail[d.key].aller[niv] = true;
+            parent.avail[d.key].retour[niv] = true;
+          });
+        }
+        scheduleSave(); renderParents(); renderPlanning();
+      });
+    });
+    card.querySelectorAll('.avail-day-block .niv-chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        const dayBlock = chip.closest('.avail-day-block');
+        const dk = dayBlock.dataset.day, mo = chip.dataset.moment, niv = chip.dataset.niveau;
+        parent.avail[dk][mo][niv] = !parent.avail[dk][mo][niv];
+        chip.classList.toggle('on', parent.avail[dk][mo][niv]);
+        scheduleSave(); renderPlanning();
+      });
+    });
+    card.querySelector('.del-btn').addEventListener('click', ()=>{
+      cw.parents = cw.parents.filter(p=>p.id!==parent.id);
+      scheduleSave(); renderParents(); renderPlanning();
+    });
+    list.appendChild(card);
+  });
+}
+
+document.getElementById('add-parent').addEventListener('click', ()=>{
+  const cw = currentWeek();
+  const niveaux = {college:true, lycee:true, ecole:false};
+  cw.parents.push({id:uid('p'), prenom:'Nouveau parent', avail:fullAvail(niveaux), niveaux});
+  scheduleSave(); renderParents(); renderPlanning();
+});
+
+/* ---------- PLANNING ---------- */
+function getTripGroups(cw){
+  const raw = [];
+  DAYS.forEach(d=>{
+    cw.children.forEach(c=>{
+      const h = c.horaires[d.key];
+      if(!h || !h.actif) return;
+      if(h.aller && h.allerNeeded) raw.push({dayKey:d.key, type:'aller', heure:h.aller, lieu:(c.lieu||'').trim(), child:c});
+      if(h.retour && h.retourNeeded) raw.push({dayKey:d.key, type:'retour', heure:h.retour, lieu:(c.lieu||'').trim(), child:c});
+    });
+  });
+  const map = new Map();
+  raw.forEach(item=>{
+    const lieuNorm = item.lieu.toLowerCase();
+    const key = lieuNorm
+      ? `g:${item.dayKey}:${item.type}:${item.heure}:${lieuNorm}`
+      : `i:${item.dayKey}:${item.type}:${item.child.id}`;
+    if(!map.has(key)){
+      map.set(key, {key, dayKey:item.dayKey, type:item.type, heure:item.heure, lieu:item.lieu, children:[]});
+    }
+    map.get(key).children.push(item.child);
+  });
+  return Array.from(map.values());
+}
+
+function availableParentsForGroup(cw, g){
+  const requiredKeys = [...new Set(g.children.map(c=>niveauToKey(c.niveau)))];
+  return cw.parents.filter(p=>{
+    const day = p.avail[g.dayKey];
+    if(!day || !day[g.type]) return false;
+    return requiredKeys.every(k=> !!(p.niveaux && p.niveaux[k]) && !!day[g.type][k]);
+  });
+}
+
+function groupNiveauTag(children){
+  const niveaus = [...new Set(children.map(c=>c.niveau))];
+  if(niveaus.length===1) return niveauTag(niveaus[0]);
+  return `<span class="tag mixte">Groupe</span>`;
+}
+
+// Removes any saved assignment that no longer points to a parent actually
+// available/permitted for that trip (e.g. a parent's "École" permission was
+// unchecked after they had been assigned to that trip).
+function purgeInvalidAssignments(cw, groups){
+  const byKey = new Map(groups.map(g=>[g.key, g]));
+  Object.keys(cw.assignments).forEach(key=>{
+    const g = byKey.get(key);
+    if(!g){ delete cw.assignments[key]; return; }
+    const pid = cw.assignments[key];
+    const stillOk = availableParentsForGroup(cw, g).some(p=>p.id===pid);
+    if(!stillOk) delete cw.assignments[key];
+  });
+}
+
+function renderPlanning(){
+  const cw = currentWeek();
+  const container = document.getElementById('planning-content');
+  container.innerHTML = '';
+  const groups = getTripGroups(cw);
+  purgeInvalidAssignments(cw, groups);
+
+  DAYS.forEach(d=>{
+    const dayGroups = groups.filter(g=>g.dayKey===d.key);
+    const block = document.createElement('div');
+    block.className = 'plan-day';
+    let html = `<div class="plan-day-title">${d.full}</div>`;
+
+    ['aller','retour'].forEach(type=>{
+      const typeGroups = dayGroups.filter(g=>g.type===type).sort((a,b)=> a.heure.localeCompare(b.heure));
+      html += `<div class="moment-block"><div class="moment-label">${type==='aller'?'Aller (matin)':'Retour'}</div>`;
+      if(typeGroups.length===0){
+        html += `<div class="empty-note">Aucun trajet.</div>`;
+      } else {
+        typeGroups.forEach(g=>{
+          const avail = availableParentsForGroup(cw, g);
+          const currentAssigned = cw.assignments[g.key];
+          const names = g.children.map(c=>c.prenom).join(', ');
+          const familles = [...new Set(g.children.map(c=>c.famille))].join(' / ');
+          let options = `<option value="">— à assigner —</option>`;
+          avail.forEach(p=>{
+            options += `<option value="${p.id}" ${currentAssigned===p.id?'selected':''}>${escapeHtml(p.prenom)}</option>`;
+          });
+          if(currentAssigned && !avail.find(p=>p.id===currentAssigned)){
+            const pObj = cw.parents.find(p=>p.id===currentAssigned);
+            if(pObj) options += `<option value="${pObj.id}" selected>${escapeHtml(pObj.prenom)} (indisponible)</option>`;
+          }
+          html += `
+            <div class="trip-row">
+              <div class="trip-info">
+                <div class="trip-name">${escapeHtml(names)} ${groupNiveauTag(g.children)}</div>
+                <div class="trip-meta">${escapeHtml(familles)}${g.lieu? ' · '+escapeHtml(g.lieu):''} · ${g.heure}</div>
+              </div>
+              <div class="trip-select">
+                <select data-key="${g.key}" class="${currentAssigned?'':'unassigned'}">${options}</select>
+              </div>
+            </div>
+          `;
+        });
+      }
+      html += `</div>`;
+    });
+    block.innerHTML = html;
+    container.appendChild(block);
+  });
+
+  container.querySelectorAll('select[data-key]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const key = e.target.dataset.key;
+      if(e.target.value){
+        cw.assignments[key] = e.target.value;
+      } else {
+        delete cw.assignments[key];
+      }
+      e.target.classList.toggle('unassigned', !e.target.value);
+      scheduleSave();
+      renderLoadSummary();
+    });
+  });
+
+  renderLoadSummary();
+}
+
+function renderLoadSummary(){
+  const cw = currentWeek();
+  const listEl = document.getElementById('load-list');
+  const counts = {};
+  cw.parents.forEach(p=> counts[p.id] = 0);
+  Object.values(cw.assignments).forEach(pid=>{
+    if(counts[pid] !== undefined) counts[pid]++;
+  });
+  const max = Math.max(1, ...Object.values(counts));
+  listEl.innerHTML = cw.parents.map(p=>{
+    const c = counts[p.id] || 0;
+    const pct = Math.round((c/max)*100);
+    return `
+      <div class="load-bar-row">
+        <div class="lname">${escapeHtml(p.prenom)}</div>
+        <div class="load-bar-track"><div class="load-bar-fill" style="width:${pct}%"></div></div>
+        <div class="load-count">${c}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function autoAssign(){
+  const cw = currentWeek();
+  const groups = getTripGroups(cw);
+  purgeInvalidAssignments(cw, groups);
+  const counts = {};
+  cw.parents.forEach(p=> counts[p.id] = 0);
+  Object.entries(cw.assignments).forEach(([key, pid])=>{
+    if(counts[pid] !== undefined) counts[pid]++;
+  });
+
+  groups.forEach(g=>{
+    if(cw.assignments[g.key]) return;
+    const avail = availableParentsForGroup(cw, g);
+    if(avail.length===0) return;
+    avail.sort((a,b)=> counts[a.id]-counts[b.id]);
+    const chosen = avail[0];
+    cw.assignments[g.key] = chosen.id;
+    counts[chosen.id] = (counts[chosen.id]||0) + 1;
+  });
+  scheduleSave('Planning équilibré ✓');
+  renderPlanning();
+}
+
+document.getElementById('auto-assign').addEventListener('click', autoAssign);
+document.getElementById('clear-plan').addEventListener('click', ()=>{
+  currentWeek().assignments = {};
+  scheduleSave('Planning vidé ✓');
+  renderPlanning();
+});
+
+/* ---------- TABS ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+function renderAll(){
+  renderChildren();
+  renderParents();
+  renderPlanning();
+}
+
+loadState();
+</script>
+</body>
+</html>
