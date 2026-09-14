@@ -79,12 +79,6 @@
   .name-input{font-size:1rem;font-weight:600;border:none;background:none;color:var(--ink);width:100%;padding:2px 0;border-bottom:1px solid transparent;}
   .name-input:focus{outline:none;border-bottom:1px solid var(--pine);}
 
-  .transport-tag{
-    flex-shrink:0;font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;
-  }
-  .transport-tag.on{background:var(--amber-dim);color:#5a3e0d;}
-  .transport-tag.off{background:var(--paper-dim);color:#8a8474;}
-
   .tag{display:inline-block;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;white-space:nowrap;}
   .tag.college{background:var(--college);}
   .tag.lycee{background:var(--lycee);}
@@ -122,7 +116,7 @@
 
   /* Per-child weekly schedule */
   .schedule-box{margin-top:12px;background:var(--paper-dim);border-radius:8px;padding:8px 10px;}
-  .schedule-hint{font-size:0.72rem;color:#8a8474;margin-bottom:8px;line-height:1.4;}
+  .schedule-box-header{display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;color:var(--pine);margin-bottom:8px;}
   .sched-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
   .sched-row:last-child{border-bottom:none;}
   .sched-day{width:34px;flex-shrink:0;font-size:0.78rem;font-weight:700;color:var(--pine);}
@@ -177,6 +171,25 @@
   .load-count{width:20px;text-align:right;font-weight:700;color:var(--pine);font-size:0.78rem;}
 
   .status-msg{font-size:0.78rem;color:#8a8474;text-align:center;margin-top:14px;min-height:16px;}
+
+  /* Info tooltip (ⓘ) */
+  .info-wrap{position:relative;display:inline-flex;vertical-align:middle;}
+  .info-icon{
+    width:18px;height:18px;border-radius:50%;background:var(--paper-dim);color:var(--pine);
+    border:1px solid var(--line);font-size:0.7rem;font-weight:700;font-style:italic;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+    font-family:Georgia,'Times New Roman',serif;
+  }
+  .info-icon:hover, .info-icon.open{background:var(--pine);color:#fff;border-color:var(--pine);}
+  .info-bubble{
+    display:none;position:absolute;z-index:20;top:24px;left:0;
+    width:240px;max-width:70vw;background:var(--ink);color:#fff;
+    font-size:0.72rem;font-weight:400;line-height:1.4;
+    padding:9px 11px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.2);
+  }
+  .info-wrap.open .info-bubble{display:block;}
+  .info-wrap:hover .info-bubble{display:block;}
+
   .shared-note{font-size:0.74rem;color:#8a8474;background:var(--paper-dim);border-radius:8px;padding:9px 11px;margin-bottom:16px;line-height:1.4;}
 </style>
 </head>
@@ -184,8 +197,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <div class="app">
   <header class="top"><h1>Tournée d'école</h1></header>
-  <p class="subtitle">Planning partagé des trajets collège / lycée pour les familles Uzel, Flacher et Gerber.</p>
-  <div class="shared-note">Les données de ce planning sont partagées entre tous ceux qui ouvrent ce lien — pratique pour que les 6 parents voient et modifient la même tournée. Chaque semaine a ses propres enfants, parents et affectations : une nouvelle semaine reprend automatiquement la configuration de la semaine précédente comme point de départ, à ajuster librement.</div>
+  <p class="subtitle">Planning partagé des trajets collège / lycée pour les familles Uzel, Flacher et Gerber. <span id="intro-info-slot"></span></p>
 
   <div class="week-bar">
     <button class="week-nav-btn" id="week-prev" title="Semaine précédente">‹</button>
@@ -517,13 +529,27 @@ function setStatus(txt){
 
 function uid(prefix){ return prefix + Math.random().toString(36).slice(2,9); }
 
-function childHasAnyTransport(child){
-  return DAYS.some(d=>{
-    const h = child.horaires[d.key];
-    if(!h || !h.actif) return false;
-    return (h.aller && h.allerNeeded) || (h.retour && h.retourNeeded);
-  });
+function infoIcon(text){
+  return `<span class="info-wrap"><span class="info-icon" role="button" tabindex="0" aria-label="Plus d'informations">i</span><span class="info-bubble">${escapeHtml(text)}</span></span>`;
 }
+document.addEventListener('click', e=>{
+  const icon = e.target.closest('.info-icon');
+  const openWraps = document.querySelectorAll('.info-wrap.open');
+  if(icon){
+    const wrap = icon.closest('.info-wrap');
+    const wasOpen = wrap.classList.contains('open');
+    openWraps.forEach(w=> w.classList.remove('open'));
+    if(!wasOpen) wrap.classList.add('open');
+  } else if(!e.target.closest('.info-bubble')){
+    openWraps.forEach(w=> w.classList.remove('open'));
+  }
+});
+document.addEventListener('keydown', e=>{
+  if((e.key==='Enter' || e.key===' ') && e.target.classList && e.target.classList.contains('info-icon')){
+    e.preventDefault();
+    e.target.click();
+  }
+});
 
 function niveauTag(niveau){
   const cls = niveau==='Lycée' ? 'lycee' : niveau==='Collège' ? 'college' : 'ecole';
@@ -629,7 +655,6 @@ function renderChildren(){
     card.innerHTML = `
       <div class="child-head">
         <input class="name-input" value="${escapeAttr(child.prenom)}" data-field="prenom" />
-        <span class="transport-tag ${childHasAnyTransport(child)?'on':'off'}">${childHasAnyTransport(child)?'🚗 Transport':'🚶 Autonome'}</span>
         <button class="del-btn" title="Supprimer">✕</button>
       </div>
       <div class="field-line">
@@ -645,7 +670,7 @@ function renderChildren(){
         <input type="text" class="lieu-input" data-field="lieu" value="${escapeAttr(child.lieu||'')}" list="lieu-names" placeholder="ex. Collège" />
       </div>
       <div class="schedule-box">
-        <div class="schedule-hint">Par jour : cochez « école » si l'enfant y va, puis cochez Aller et/ou Retour uniquement pour les trajets où il a besoin d'être conduit (décoché = autonome ce trajet-là : train, à pied, quelqu'un d'autre…). Cette semaine uniquement — les autres semaines ne sont pas affectées.</div>
+        <div class="schedule-box-header">Horaires de la semaine ${infoIcon("Par jour : cochez « école » si l'enfant y va, puis cochez Aller et/ou Retour uniquement pour les trajets où il a besoin d'être conduit (décoché = autonome ce trajet-là : train, à pied, quelqu'un d'autre…). Cette semaine uniquement — les autres semaines ne sont pas affectées.")}</div>
         ${DAYS.map(d=>{
           const h = child.horaires[d.key];
           return `
@@ -665,13 +690,6 @@ function renderChildren(){
         }).join('')}
       </div>
     `;
-    function refreshBadge(){
-      const tag = card.querySelector('.transport-tag');
-      const any = childHasAnyTransport(child);
-      tag.textContent = any ? '🚗 Transport' : '🚶 Autonome';
-      tag.classList.toggle('on', any);
-      tag.classList.toggle('off', !any);
-    }
     card.querySelector('[data-field="prenom"]').addEventListener('input', e=>{
       child.prenom = e.target.value; scheduleSave(); renderPlanning();
     });
@@ -689,15 +707,15 @@ function renderChildren(){
       row.querySelector('[data-actif]').addEventListener('change', e=>{
         child.horaires[d.key].actif = e.target.checked;
         row.classList.toggle('inactive', !e.target.checked);
-        scheduleSave(); renderPlanning(); refreshBadge();
+        scheduleSave(); renderPlanning();
       });
       row.querySelector('[data-aller-needed]').addEventListener('change', e=>{
         child.horaires[d.key].allerNeeded = e.target.checked;
-        scheduleSave(); renderPlanning(); refreshBadge();
+        scheduleSave(); renderPlanning();
       });
       row.querySelector('[data-retour-needed]').addEventListener('change', e=>{
         child.horaires[d.key].retourNeeded = e.target.checked;
-        scheduleSave(); renderPlanning(); refreshBadge();
+        scheduleSave(); renderPlanning();
       });
       row.querySelector('[data-aller]').addEventListener('change', e=>{
         child.horaires[d.key].aller = e.target.value; scheduleSave(); renderPlanning();
@@ -1019,6 +1037,9 @@ function renderAll(){
   renderPlanning();
 }
 
+document.getElementById('intro-info-slot').innerHTML = infoIcon(
+  "Les données de ce planning sont partagées entre tous ceux qui ouvrent ce lien — pratique pour que les 6 parents voient et modifient la même tournée. Chaque semaine a ses propres enfants, parents et affectations : une nouvelle semaine reprend automatiquement la configuration de la semaine précédente comme point de départ, à ajuster librement."
+);
 loadState();
 </script>
 </body>
